@@ -44,4 +44,5 @@ config/*.secrets.json
 config/apikeys.txt
 .env
 test.bash
+config/lists/
 
