@@ -1,9 +1,0 @@
-{
-  "category": "hate_speech",
-  "severity": "high",
-  "matchMode": "contains",
-  "words": [
-    "idiot",
-    "ass"
-  ]
-}
