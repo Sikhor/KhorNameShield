@@ -1,0 +1,10 @@
+{
+  "category": "impersonation",
+  "severity": "high",
+  "matchMode": "contains",
+  "words": [
+    "daraempireteam",
+    "khorstudios",
+    "modteam"
+  ]
+}

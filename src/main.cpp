@@ -5,8 +5,17 @@
 #include <mutex>
 #include <unordered_set>
 #include <openssl/sha.h>
+#include "wordlists.hpp"     // from above
+#include "apikeys.hpp"       // your api key validator (already)
 
 using json = nlohmann::json;
+struct Policy {
+    int minLen = 3;
+    int maxLen = 16;
+    bool allowSpaces = false;
+    bool allowUnderscore = true;
+    int reloadSeconds = 5;
+};
 
 /* ============================================================
    API KEY STORAGE
@@ -73,6 +82,36 @@ bool IsApiKeyValid(const std::string& apiKey)
     return g_allowedKeys.find(hash) != g_allowedKeys.end();
 }
 
+
+/* loading word files and check */
+static bool FormatAllowedAscii(const std::string& raw, const Policy& p, std::string& why) {
+    if ((int)raw.size() < p.minLen) { why = "TOO_SHORT"; return false; }
+    if ((int)raw.size() > p.maxLen) { why = "TOO_LONG"; return false; }
+    for (unsigned char c : raw) {
+        if (std::isalnum(c)) continue;
+        if (c == '_' && p.allowUnderscore) continue;
+        if (c == ' ' && p.allowSpaces) continue;
+        why = "INVALID_CHAR";
+        return false;
+    }
+    return true;
+}
+
+static Policy LoadPolicy(const std::string& path) {
+    Policy p;
+    std::ifstream f(path);
+    if (!f.is_open()) return p;
+    json j; try { f >> j; } catch (...) { return p; }
+    if (!j.is_object()) return p;
+    p.minLen = j.value("minLen", p.minLen);
+    p.maxLen = j.value("maxLen", p.maxLen);
+    p.allowSpaces = j.value("allowSpaces", p.allowSpaces);
+    p.allowUnderscore = j.value("allowUnderscore", p.allowUnderscore);
+    p.reloadSeconds = j.value("reloadSeconds", p.reloadSeconds);
+    return p;
+}
+
+
 /* ============================================================
    MAIN
    ============================================================ */
@@ -83,6 +122,9 @@ int main()
 
     LoadApiKeys();
 
+    Policy policy = LoadPolicy("config/policy.json");
+    WordLists lists("config/lists");
+
     crow::SimpleApp app;
 
     CROW_ROUTE(app, "/health").methods("GET"_method)
@@ -91,7 +133,7 @@ int main()
     });
 
     CROW_ROUTE(app, "/v1/namecheck").methods("POST"_method)
-    ([](const crow::request& req) {
+    ([&](const crow::request& req) {
 
         const std::string apiKey = req.get_header_value("X-Api-Key");
 
@@ -99,36 +141,55 @@ int main()
         {
             return crow::response(403, R"({"ok":false,"error":"API_KEY_INVALID"})");
         }
+        // --- Hot reload lists (and optionally policy too) ---
+        lists.MaybeReload(policy.reloadSeconds);
+        // If you want policy hot reload too, re-read policy.json here occasionally.
 
-        json body;
-        try {
-            body = json::parse(req.body);
-        }
-        catch (...)
-        {
-            return crow::response(400, R"({"ok":false,"error":"INVALID_JSON"})");
+        // --- Parse JSON body ---
+        json in;
+        try { in = json::parse(req.body); }
+        catch (...) { return crow::response(400, R"({"ok":false,"error":"INVALID_JSON"})"); }
+
+        std::string name = in.value("name", "");
+        if (name.empty()) return crow::response(400, R"({"ok":false,"error":"NAME_REQUIRED"})");
+
+        // --- Format rules ---
+        std::string why;
+        if (!FormatAllowedAscii(name, policy, why)) {
+            json out = {
+                {"ok", false},
+                {"severity", "medium"},
+                {"reasons", json::array({ "FORMAT_" + why })},
+                {"suggestions", json::array({ "Use 3–16 characters with letters/numbers (and underscore if enabled)." })}
+            };
+            return crow::response(200, out.dump());
         }
 
-        std::string name = body.value("name", "");
-        if (name.empty())
-        {
-            return crow::response(400, R"({"ok":false,"error":"NAME_REQUIRED"})");
-        }
+        // --- Normalize + list check ---
+        auto norm = NormalizeNameForScan(name);
+        auto hit = lists.Check(norm.scanKey);
 
-        // TODO: plug in your name validation logic here
-        json response = {
-            {"ok", true},
-            {"checkedName", name}
+        json out;
+        out["ok"] = hit.ok;
+        out["severity"] = SeverityStr(hit.severity);
+        out["reasons"] = hit.reasons;
+
+        out["normalized"] = {
+            {"unicodeFolded", norm.unicodeFolded},
+            {"leetFolded", norm.leetFolded},
+            {"scanKey", norm.scanKey}
         };
 
-        return crow::response(200, response.dump());
+        if (!hit.ok) {
+            out["suggestions"] = json::array({
+                "Choose a different name.",
+                "Avoid staff-like words, hate/extremism references, and offensive terms."
+            });
+        }
+
+        return crow::response(200, out.dump());
     });
 
-    // IMPORTANT: bind only to localhost
-    app.bindaddr("127.0.0.1")
-       .port(8188)
-       .multithreaded()
-       .run();
-
+    app.bindaddr("127.0.0.1").port(8188).multithreaded().run();
     return 0;
 }
