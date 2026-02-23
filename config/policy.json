@@ -1,0 +1,6 @@
+{
+  "minLen": 3,
+  "maxLen": 16,
+  "allowSpaces": false,
+  "allowUnderscore": true
+}

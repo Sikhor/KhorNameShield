@@ -1,0 +1,40 @@
+# Build
+build/
+cmake-build-*/
+out/
+dist/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Binaries / objects
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local overrides / secrets
+**/*.local.json
+.env

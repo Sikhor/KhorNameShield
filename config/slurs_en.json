@@ -1,0 +1,11 @@
+{
+  "category": "hate_speech",
+  "severity": "high",
+  "matchMode": "contains",
+  "words": [
+    "hitler",
+    "nazi",
+    "kkk",
+    "heil"
+  ]
+}
