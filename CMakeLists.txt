@@ -3,9 +3,11 @@ project(KhorNameShieldService LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 
+# ---------- Dependencies ----------
 # nlohmann/json
 FetchContent_Declare(
   nlohmann_json
@@ -14,7 +16,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
-# Crow (use a maintained fork; original is sometimes stale)
+# Crow (maintained)
 FetchContent_Declare(
   crow
   GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
@@ -22,11 +24,23 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(crow)
 
-add_executable(KhorNameShield main.cpp)
-
-# Crow target name can differ by version; this works with CrowCpp/Crow.
-target_link_libraries(KhorNameShield PRIVATE Crow::Crow nlohmann_json::nlohmann_json)
-
-# pthread on Linux (some setups need it explicitly)
 find_package(Threads REQUIRED)
-target_link_libraries(KhorNameShield PRIVATE Threads::Threads)
+find_package(OpenSSL REQUIRED)
+
+# ---------- Target ----------
+add_executable(KhorNameShieldService
+  src/main.cpp
+)
+
+# Crow include style differs by version; CrowCpp/Crow exports Crow::Crow
+target_link_libraries(KhorNameShieldService PRIVATE
+  Crow::Crow
+  nlohmann_json::nlohmann_json
+  Threads::Threads
+  OpenSSL::Crypto
+)
+
+# Optional: nicer warnings
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(KhorNameShieldService PRIVATE -Wall -Wextra -Wpedantic)
+endif()

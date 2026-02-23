@@ -38,3 +38,10 @@ Thumbs.db
 # Local overrides / secrets
 **/*.local.json
 .env
+
+config/apikeys.json
+config/*.secrets.json
+config/apikeys.txt
+.env
+test.bash
+
