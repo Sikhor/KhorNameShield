@@ -1,0 +1,17 @@
+{
+  "category": "reserved",
+  "severity": "high",
+  "matchMode": "contains",
+  "words": [
+    "admin",
+    "administrator",
+    "gm",
+    "gamemaster",
+    "support",
+    "dev",
+    "developer",
+    "system",
+    "staff",
+    "official"
+  ]
+}
