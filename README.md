@@ -22,3 +22,17 @@ and should have this format
 You can add many wordlist files in the config/lists folder they will all be hotloaded regularly
 
 Service name: **KhorNameShieldService**
+
+# Test.bash:
+Use test.bash to check for some bad names. It is not in git as the names are very bad and I do not want to appear them somwhere.
+
+# Current REST Adresses:
+Currently REST Apis running on 
+https://gameinfo.daraempire.com/api/v001/khor-services
+
+# available REST endpoints
+/health check if service is up with any webpage via Get
+/v1/NameCheck  send {"name": "<NametoCheck>"}" 
+/v1/GTSendScore { "score": <score>, "avatarId": "<AvatarId>", "charName": "<Character Name>", "gameId": "<Game Id>"}
+
+

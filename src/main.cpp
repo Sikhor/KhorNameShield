@@ -132,7 +132,7 @@ int main()
         return crow::response(200, R"({"ok":true,"service":"KhorNameShieldService"})");
     });
 
-    CROW_ROUTE(app, "/v1/namecheck").methods("POST"_method)
+    CROW_ROUTE(app, "/NameCheck").methods("POST"_method)
     ([&](const crow::request& req) {
 
         const std::string apiKey = req.get_header_value("X-Api-Key");
@@ -190,6 +190,26 @@ int main()
         return crow::response(200, out.dump());
     });
 
-    app.bindaddr("127.0.0.1").port(8188).multithreaded().run();
+
+    CROW_ROUTE(app, "/GTSendScore").methods("POST"_method)
+    ([&](const crow::request& req) {
+
+        const std::string apiKey = req.get_header_value("X-Api-Key");
+
+        if (!IsApiKeyValid(apiKey))
+        {
+            std::cout << "Error: Received invalid customer key " << apiKey << std::endl;
+            return crow::response(403, R"({"ok":false,"error":"API_KEY_INVALID"})");
+        }else{
+            std::cout << "Received valid customer key " << apiKey << std::endl;
+            return crow::response(200, R"({"ok":true,"Message":"ScoreMsg valid"})");
+        }
+    });
+
+    int Port= 8188;
+    std::cout << "Starting on port:" << Port << std::endl;
+    app.bindaddr("127.0.0.1").port(Port).multithreaded().run();
+
+    
     return 0;
 }
