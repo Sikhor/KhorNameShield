@@ -30,6 +30,7 @@ find_package(OpenSSL REQUIRED)
 # ---------- Target ----------
 add_executable(KhorNameShieldService
   src/main.cpp
+  src/GameTracker.cpp
 )
 
 # Crow include style differs by version; CrowCpp/Crow exports Crow::Crow

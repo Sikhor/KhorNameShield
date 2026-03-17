@@ -7,6 +7,7 @@
 #include <openssl/sha.h>
 #include "wordlists.hpp"     // from above
 #include "apikeys.hpp"       // your api key validator (already)
+#include "GameTracker.hpp"       // GameTracker for Scores
 
 using json = nlohmann::json;
 struct Policy {
@@ -191,7 +192,7 @@ int main()
     });
 
 
-    CROW_ROUTE(app, "/GTSendScore").methods("POST"_method)
+    CROW_ROUTE(app, "/GameTracker/SendScore").methods("POST"_method)
     ([&](const crow::request& req) {
 
         const std::string apiKey = req.get_header_value("X-Api-Key");
@@ -201,8 +202,23 @@ int main()
             std::cout << "Error: Received invalid customer key " << apiKey << std::endl;
             return crow::response(403, R"({"ok":false,"error":"API_KEY_INVALID"})");
         }else{
-            std::cout << "Received valid customer key " << apiKey << std::endl;
-            return crow::response(200, R"({"ok":true,"Message":"ScoreMsg valid"})");
+            std::cout << "Received valid customer key " << std::endl;
+            return crow::response(200, SendScore(req.body));
+        }
+    });
+
+    CROW_ROUTE(app, "/GameTracker/NewGame").methods("POST"_method)
+    ([&](const crow::request& req) {
+
+        const std::string apiKey = req.get_header_value("X-Api-Key");
+
+        if (!IsApiKeyValid(apiKey))
+        {
+            std::cout << "Error: Received invalid customer key " << apiKey << std::endl;
+            return crow::response(403, R"({"ok":false,"error":"API_KEY_INVALID"})");
+        }else{
+            std::cout << "Received valid customer key " << std::endl;
+            return crow::response(200, NewGame(req.body));
         }
     });
 
