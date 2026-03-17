@@ -222,6 +222,14 @@ int main()
         }
     });
 
+    if (!LoadGamesFromFile("GameTracker/Games.json"))
+    {
+        std::cout << "Failed to load games!" << std::endl;
+        return 1;
+    }
+    GetOrStartRunningGame();
+
+
     int Port= 8188;
     std::cout << "Starting on port:" << Port << std::endl;
     app.bindaddr("127.0.0.1").port(Port).multithreaded().run();

@@ -1,0 +1,16 @@
+{
+  "games": [
+    {
+      "gameId": "G1",
+      "description": "Dungeon Run Alpha",
+      "winScore": 500,
+      "status": "Running"
+    },
+    {
+      "gameId": "G2",
+      "description": "Harrowed Fields",
+      "winScore": 1000,
+      "status": "Running"
+    }
+  ]
+}
