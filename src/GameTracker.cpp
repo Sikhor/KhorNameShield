@@ -5,20 +5,23 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <mutex>
+#include <unordered_map>
+
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 
 namespace
 {
-    std::unordered_map<std::string, std::deque<ScoreMsg>> ScoresByGame;
+    std::deque<ScoreMsg> CurrentScores;
     std::mutex ScoresMutex;
     std::vector<Game> Games;
     std::int64_t NextGameStartTimestamp = 0;
 
-    constexpr std::int64_t GAME_COOLDOWN_SECONDS = 60;   // 3 minutes
-    constexpr std::int64_t SCORE_WINDOW_SECONDS   = 36000; // 10 hours
-    constexpr std::size_t  DEFAULT_TOP_COUNT      = 5;
+    constexpr std::int64_t GAME_COOLDOWN_SECONDS = 60;     // 1 minute
+    constexpr std::int64_t SCORE_WINDOW_SECONDS  = 36000;  // 10 hours
+    constexpr std::size_t  DEFAULT_TOP_COUNT     = 5;
 }
 
 std::int64_t GetCurrentTimestamp()
@@ -107,6 +110,8 @@ bool LoadGamesFromFile(const std::string& filename)
         std::lock_guard<std::mutex> lock(ScoresMutex);
 
         Games.clear();
+        CurrentScores.clear();
+        NextGameStartTimestamp = 0;
 
         for (const auto& item : j["games"])
         {
@@ -114,7 +119,9 @@ bool LoadGamesFromFile(const std::string& filename)
             g.gameId = item.at("gameId").get<std::string>();
             g.description = item.at("description").get<std::string>();
             g.winScore = item.at("winScore").get<int>();
-            g.status = GameStatusFromString(item.at("status").get<std::string>());
+
+            // On startup we normalize all games to Pending
+            g.status = GameStatus::Pending;
 
             Games.push_back(g);
         }
@@ -144,37 +151,53 @@ const Game* GetGameById(const std::string& gameId)
     return nullptr;
 }
 
-bool ClearScoresForGame(const std::string& gameId)
+Game* GetRunningGame()
 {
-    auto it = ScoresByGame.find(gameId);
-    if (it == ScoresByGame.end())
-    {
-        return false;
-    }
-
-    ScoresByGame.erase(it);
-    return true;
-}
-
-Game* GetOrStartRunningGame()
-{
-    // already running?
     for (Game& g : Games)
     {
         if (g.status == GameStatus::Running)
             return &g;
     }
+    return nullptr;
+}
 
-    // still cooling down? then do not start a new one yet
+Game* GetOverGame()
+{
+    for (Game& g : Games)
+    {
+        if (g.status == GameStatus::Over)
+            return &g;
+    }
+    return nullptr;
+}
+
+void ClearAllScores()
+{
+    CurrentScores.clear();
+}
+
+Game* GetOrStartRunningGame()
+{
+    // 1. If a game is already running, use it
+    if (Game* runningGame = GetRunningGame())
+    {
+        return runningGame;
+    }
+
+    // 2. If cooldown is active, do not start a new game yet
     if (IsGameStartCooldownActive())
+    {
         return nullptr;
+    }
 
-    // cooldown is over and no game is running:
-    // now clear old finished leaderboards and recycle games
-    ClearScoresForOverGames();
-    ResetOverGamesToPending();
+    // 3. Cooldown over: if an old game is over, clear all scores and reset it
+    if (Game* overGame = GetOverGame())
+    {
+        ClearAllScores();
+        overGame->status = GameStatus::Pending;
+    }
 
-    // collect pending games
+    // 4. Collect pending games
     std::vector<Game*> pendingGames;
     for (Game& g : Games)
     {
@@ -185,39 +208,38 @@ Game* GetOrStartRunningGame()
     }
 
     if (pendingGames.empty())
+    {
         return nullptr;
+    }
 
-    // random pick
+    // 5. Pick a random pending game and start it
     static std::random_device rd;
     static std::mt19937 gen(rd());
 
     std::uniform_int_distribution<std::size_t> dist(0, pendingGames.size() - 1);
     Game* selectedGame = pendingGames[dist(gen)];
-
     selectedGame->status = GameStatus::Running;
+
     return selectedGame;
 }
 
-std::string GetTopScores(const std::string& gameId, std::size_t maxEntries)
+std::string GetTopScores(std::size_t maxEntries)
 {
     json response;
     response["ok"] = true;
-    response["gameId"] = gameId;
     response["leaderboard"] = json::array();
 
-    auto itGame = ScoresByGame.find(gameId);
-    if (itGame == ScoresByGame.end())
+    CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
+
+    if (CurrentScores.empty())
     {
         response["activeScoreMessages"] = 0;
         return response.dump();
     }
 
-    auto& scores = itGame->second;
-    CleanupOldScores(scores, SCORE_WINDOW_SECONDS);
-
     std::unordered_map<std::string, LeaderboardEntry> totalsByCharName;
 
-    for (const ScoreMsg& s : scores)
+    for (const ScoreMsg& s : CurrentScores)
     {
         auto itPlayer = totalsByCharName.find(s.charName);
 
@@ -276,8 +298,7 @@ std::string GetTopScores(const std::string& gameId, std::size_t maxEntries)
         });
     }
 
-    response["activeScoreMessages"] = scores.size();
-
+    response["activeScoreMessages"] = CurrentScores.size();
     return response.dump();
 }
 
@@ -297,7 +318,7 @@ std::string BuildStatusResponse(
     response["cooldownActive"] = IsGameStartCooldownActive();
     response["nextGameStartsInSeconds"] = GetGameStartCooldownRemainingSeconds();
 
-    // normal running game case
+    // Running or explicitly provided game
     if (game)
     {
         response["hasRunningGame"] = (game->status == GameStatus::Running);
@@ -310,17 +331,15 @@ std::string BuildStatusResponse(
             {"status", GameStatusToString(game->status)}
         };
 
-        json topScores = json::parse(GetTopScores(game->gameId, DEFAULT_TOP_COUNT));
+        json topScores = json::parse(GetTopScores(DEFAULT_TOP_COUNT));
         response["leaderboard"] = topScores["leaderboard"];
         response["activeScoreMessages"] = topScores["activeScoreMessages"];
 
         return response.dump();
     }
 
-    // no running game: maybe we are in cooldown and should show last finished game
-    Game* overGame = GetLatestOverGame();
-
-    if (overGame)
+    // No running game: maybe waiting with last over game still visible
+    if (Game* overGame = GetOverGame())
     {
         response["hasRunningGame"] = false;
         response["gameStatus"] = "Waiting";
@@ -332,14 +351,14 @@ std::string BuildStatusResponse(
             {"status", GameStatusToString(overGame->status)}
         };
 
-        json topScores = json::parse(GetTopScores(overGame->gameId, DEFAULT_TOP_COUNT));
+        json topScores = json::parse(GetTopScores(DEFAULT_TOP_COUNT));
         response["leaderboard"] = topScores["leaderboard"];
         response["activeScoreMessages"] = topScores["activeScoreMessages"];
 
         return response.dump();
     }
 
-    // no running game and no previous finished game
+    // Nothing running and nothing over
     response["hasRunningGame"] = false;
     response["gameStatus"] = "Waiting";
     response["game"] = nullptr;
@@ -370,22 +389,13 @@ std::string SendScore(const std::string& body)
 
         Game* runningGame = GetOrStartRunningGame();
 
+        // no running game because cooldown/waiting is active
         if (!runningGame)
         {
             return BuildStatusResponse(nullptr, false, 0, false, "");
         }
 
-        auto& scores = ScoresByGame[runningGame->gameId];
-        CleanupOldScores(scores, SCORE_WINDOW_SECONDS);
-
-        int currentTotalForPlayer = 0;
-        for (const ScoreMsg& s : scores)
-        {
-            if (s.charName == msg.charName)
-            {
-                currentTotalForPlayer += s.score;
-            }
-        }
+        CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
 
         // heartbeat only
         if (msg.score == 0)
@@ -393,21 +403,29 @@ std::string SendScore(const std::string& body)
             return BuildStatusResponse(runningGame, false, 0, false, "");
         }
 
-        // winning score is NOT stored, game is ended immediately
+        int currentTotalForPlayer = 0;
+        for (const ScoreMsg& s : CurrentScores)
+        {
+            if (s.charName == msg.charName)
+            {
+                currentTotalForPlayer += s.score;
+            }
+        }
+
+        // winning score reached
         if (currentTotalForPlayer + msg.score >= runningGame->winScore)
         {
-            // at least we need to reach the winning score to win!!!
-            scores.push_back(msg);
+            CurrentScores.push_back(msg);
 
             runningGame->status = GameStatus::Over;
             StartGameCooldown(GAME_COOLDOWN_SECONDS);
 
-            return BuildStatusResponse(runningGame, false, 0, true, msg.charName);
+            return BuildStatusResponse(runningGame, true, msg.score, true, msg.charName);
         }
 
         // normal score add
-        scores.push_back(msg);
-        CleanupOldScores(scores, SCORE_WINDOW_SECONDS);
+        CurrentScores.push_back(msg);
+        CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
 
         return BuildStatusResponse(runningGame, true, msg.score, false, "");
     }
@@ -421,13 +439,11 @@ std::string SendScore(const std::string& body)
     }
 }
 
-
 std::string NewGame(const std::string& body)
 {
     try
     {
         json j = json::parse(body);
-
         std::string gameId = j.at("gameId").get<std::string>();
 
         if (gameId.empty())
@@ -437,18 +453,30 @@ std::string NewGame(const std::string& body)
 
         std::lock_guard<std::mutex> lock(ScoresMutex);
 
-        ClearScoresForGame(gameId);
+        ClearAllScores();
+        NextGameStartTimestamp = 0;
+
+        bool found = false;
 
         for (Game& g : Games)
         {
             if (g.gameId == gameId)
             {
+                g.status = GameStatus::Running;
+                found = true;
+            }
+            else
+            {
                 g.status = GameStatus::Pending;
-                return R"({"ok":true})";
             }
         }
 
-        return R"({"ok":false,"error":"GAME_NOT_FOUND"})";
+        if (!found)
+        {
+            return R"({"ok":false,"error":"GAME_NOT_FOUND"})";
+        }
+
+        return R"({"ok":true})";
     }
     catch (const json::exception&)
     {
@@ -457,39 +485,5 @@ std::string NewGame(const std::string& body)
     catch (const std::exception&)
     {
         return R"({"ok":false,"error":"NEWGAME_FAILED"})";
-    }
-}
-
-
-Game* GetLatestOverGame()
-{
-    for (Game& g : Games)
-    {
-        if (g.status == GameStatus::Over)
-            return &g;
-    }
-
-    return nullptr;
-}
-
-void ResetOverGamesToPending()
-{
-    for (Game& g : Games)
-    {
-        if (g.status == GameStatus::Over)
-        {
-            g.status = GameStatus::Pending;
-        }
-    }
-}
-
-void ClearScoresForOverGames()
-{
-    for (const Game& g : Games)
-    {
-        if (g.status == GameStatus::Over)
-        {
-            ClearScoresForGame(g.gameId);
-        }
     }
 }

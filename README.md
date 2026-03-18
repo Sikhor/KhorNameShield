@@ -35,4 +35,28 @@ https://gameinfo.daraempire.com/api/v001/khor-services
 /v1/NameCheck  send {"name": "<NametoCheck>"}" 
 /v1/GTSendScore { "score": <score>, "avatarId": "<AvatarId>", "charName": "<Character Name>", "gameId": "<Game Id>"}
 
+# Example Response to SendScore
+{
+  "activeScoreMessages":73,
+  "cooldownActive":true,
+  "game":{"description":"Harrowed Fields",
+  "gameId":"G2",
+  "status":"Over",
+  "winScore":1000},
+  "gameOver":false,
+  "gameStatus":"Waiting",
+  "hasRunningGame":false,
+  "leaderboard":[
+      {"avatarId":"A1","charName":"Bernie","totalScore":1080},
+      {"avatarId":"A1","charName":"Joinix","totalScore":880},
+      {"avatarId":"A1","charName":"Hatari","totalScore":800},
+      {"avatarId":"A1","charName":"Trulan","totalScore":720},
+      {"avatarId":"A1","charName":"Nanasa","totalScore":640}
+      ],
+  "nextGameStartsInSeconds":59,
+  "ok":true,
+  "scoreAccepted":false,
+  "scoreAdded":0
+}
+
 
