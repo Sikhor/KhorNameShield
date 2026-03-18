@@ -37,26 +37,53 @@ https://gameinfo.daraempire.com/api/v001/khor-services
 
 # Example Response to SendScore
 {
-  "activeScoreMessages":73,
-  "cooldownActive":true,
-  "game":{"description":"Harrowed Fields",
-  "gameId":"G2",
-  "status":"Over",
-  "winScore":1000},
-  "gameOver":false,
-  "gameStatus":"Waiting",
-  "hasRunningGame":false,
-  "leaderboard":[
-      {"avatarId":"A1","charName":"Bernie","totalScore":1080},
-      {"avatarId":"A1","charName":"Joinix","totalScore":880},
-      {"avatarId":"A1","charName":"Hatari","totalScore":800},
-      {"avatarId":"A1","charName":"Trulan","totalScore":720},
-      {"avatarId":"A1","charName":"Nanasa","totalScore":640}
-      ],
-  "nextGameStartsInSeconds":59,
-  "ok":true,
-  "scoreAccepted":false,
-  "scoreAdded":0
+  "activeScoreMessages": 5009,
+  "cooldownActive": false,
+  "game": {
+    "description": "Dungeon Run Alpha",
+    "gameId": "G1",
+    "status": "Running",
+    "winScore": 500
+  },
+  "gameOver": false,
+  "gameStatus": "Running",
+  "hasRunningGame": true,
+  "leaderboard": [
+    {
+      "avatarId": "A1",
+      "charName": "PerfUser_4736",
+      "lastTimestamp": 1773856390,
+      "totalScore": 200
+    },
+    {
+      "avatarId": "A1",
+      "charName": "PerfUser_4629",
+      "lastTimestamp": 1773856390,
+      "totalScore": 200
+    },
+    {
+      "avatarId": "A1",
+      "charName": "PerfUser_4207",
+      "lastTimestamp": 1773856387,
+      "totalScore": 200
+    },
+    {
+      "avatarId": "A1",
+      "charName": "PerfUser_4209",
+      "lastTimestamp": 1773856387,
+      "totalScore": 200
+    },
+    {
+      "avatarId": "A1",
+      "charName": "PerfUser_3602",
+      "lastTimestamp": 1773856384,
+      "totalScore": 200
+    }
+  ],
+  "nextGameStartsInSeconds": 0,
+  "ok": true,
+  "scoreAccepted": true,
+  "scoreAdded": 30,
+  "winnerCharName": ""
 }
-
 

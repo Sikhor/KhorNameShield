@@ -203,7 +203,9 @@ int main()
             return crow::response(403, R"({"ok":false,"error":"API_KEY_INVALID"})");
         }else{
             std::cout << "Received valid customer key " << std::endl;
-            return crow::response(200, SendScore(req.body));
+            json j = json::parse(req.body);
+            std::cout << j.dump()<< std::endl;
+            return crow::response(200, PrepareAndSendScore(req.body));
         }
     });
 
@@ -219,6 +221,23 @@ int main()
         }else{
             std::cout << "Received valid customer key " << std::endl;
             return crow::response(200, NewGame(req.body));
+        }
+    });
+
+    CROW_ROUTE(app, "/GameTracker/GetGameState").methods("POST"_method)
+    ([&](const crow::request& req) {
+
+        const std::string apiKey = req.get_header_value("X-Api-Key");
+
+        if (!IsApiKeyValid(apiKey))
+        {
+            std::cout << "Error: Received invalid customer key " << apiKey << std::endl;
+            return crow::response(403, R"({"ok":false,"error":"API_KEY_INVALID"})");
+        }else{
+            std::cout << "Received valid customer key " << std::endl;
+            json j = json::parse(req.body);
+            std::cout << j.dump()<< std::endl;
+            return crow::response(200, GetGameState(req.body));
         }
     });
 

@@ -67,5 +67,8 @@ std::string BuildStatusResponse(
     bool gameOver,
     const std::string& winnerCharName);
 
-std::string SendScore(const std::string& body);
+std::string SendScore(ScoreMsg msg);
+std::string PrepareAndSendScore(const std::string& body);
+std::string GetGameState(const std::string& body);
 std::string NewGame(const std::string& body);
+std::string CheckScoreMsg(ScoreMsg msg);

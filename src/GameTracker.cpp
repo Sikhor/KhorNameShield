@@ -368,7 +368,7 @@ std::string BuildStatusResponse(
     return response.dump();
 }
 
-std::string SendScore(const std::string& body)
+std::string PrepareAndSendScore(const std::string& body)
 {
     try
     {
@@ -380,54 +380,11 @@ std::string SendScore(const std::string& body)
         msg.charName = j.at("charName").get<std::string>();
         msg.timestamp = GetCurrentTimestamp();
 
-        if (msg.avatarId.empty() || msg.charName.empty() || msg.score < 0)
+        if(CheckScoreMsg(msg)!="")
         {
-            return R"({"ok":false,"error":"INVALID_SCORE_MSG"})";
+            return CheckScoreMsg(msg);
         }
-
-        std::lock_guard<std::mutex> lock(ScoresMutex);
-
-        Game* runningGame = GetOrStartRunningGame();
-
-        // no running game because cooldown/waiting is active
-        if (!runningGame)
-        {
-            return BuildStatusResponse(nullptr, false, 0, false, "");
-        }
-
-        CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
-
-        // heartbeat only
-        if (msg.score == 0)
-        {
-            return BuildStatusResponse(runningGame, false, 0, false, "");
-        }
-
-        int currentTotalForPlayer = 0;
-        for (const ScoreMsg& s : CurrentScores)
-        {
-            if (s.charName == msg.charName)
-            {
-                currentTotalForPlayer += s.score;
-            }
-        }
-
-        // winning score reached
-        if (currentTotalForPlayer + msg.score >= runningGame->winScore)
-        {
-            CurrentScores.push_back(msg);
-
-            runningGame->status = GameStatus::Over;
-            StartGameCooldown(GAME_COOLDOWN_SECONDS);
-
-            return BuildStatusResponse(runningGame, true, msg.score, true, msg.charName);
-        }
-
-        // normal score add
-        CurrentScores.push_back(msg);
-        CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
-
-        return BuildStatusResponse(runningGame, true, msg.score, false, "");
+        return SendScore(msg);
     }
     catch (const json::exception&)
     {
@@ -437,6 +394,55 @@ std::string SendScore(const std::string& body)
     {
         return R"({"ok":false,"error":"SEND_SCORE_FAILED"})";
     }
+}
+
+
+std::string SendScore(ScoreMsg msg)
+{
+
+    std::lock_guard<std::mutex> lock(ScoresMutex);
+
+    Game* runningGame = GetOrStartRunningGame();
+
+    // no running game because cooldown/waiting is active
+    if (!runningGame)
+    {
+        return BuildStatusResponse(nullptr, false, 0, false, "");
+    }
+
+    CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
+
+    // heartbeat only
+    if (msg.score == 0)
+    {
+        return BuildStatusResponse(runningGame, false, 0, false, "");
+    }
+
+    int currentTotalForPlayer = 0;
+    for (const ScoreMsg& s : CurrentScores)
+    {
+        if (s.charName == msg.charName)
+        {
+            currentTotalForPlayer += s.score;
+        }
+    }
+
+    // winning score reached
+    if (currentTotalForPlayer + msg.score >= runningGame->winScore)
+    {
+        CurrentScores.push_back(msg);
+
+        runningGame->status = GameStatus::Over;
+        StartGameCooldown(GAME_COOLDOWN_SECONDS);
+
+        return BuildStatusResponse(runningGame, true, msg.score, true, msg.charName);
+    }
+
+    // normal score add
+    CurrentScores.push_back(msg);
+    CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
+
+    return BuildStatusResponse(runningGame, true, msg.score, false, "");
 }
 
 std::string NewGame(const std::string& body)
@@ -486,4 +492,52 @@ std::string NewGame(const std::string& body)
     {
         return R"({"ok":false,"error":"NEWGAME_FAILED"})";
     }
+}
+
+std::string GetGameState(const std::string& body)
+{
+    try
+    {
+        json j = json::parse(body);
+
+        ScoreMsg msg;
+        msg.charName = j.at("charName").get<std::string>();
+        msg.avatarId= j.at("avatarId").get<std::string>();
+        msg.score= 0;
+        msg.timestamp = GetCurrentTimestamp();
+
+        if(CheckScoreMsg(msg)!="")
+        {
+            return CheckScoreMsg(msg);
+        }
+        // Sending ScoreMsg with score 0...means getting current state
+        return SendScore(msg);
+    }
+    catch (const json::exception&)
+    {
+        return R"({"ok":false,"error":"INVALID_JSON"})";
+    }
+    catch (const std::exception&)
+    {
+        return R"({"ok":false,"error":"GETGAMESTATE_FAILED"})";
+    }
+
+}
+
+// returns empty string if everything ok
+std::string CheckScoreMsg(ScoreMsg msg)
+{
+  if (msg.score < 0)
+  {
+      return R"({"ok":false,"error":"INVALID_NEGATIVE_SCORE_MSG"})";
+  }
+  if (msg.avatarId.empty())
+  {
+      return R"({"ok":false,"error":"INVALID_AVATARID_SCORE_MSG"})";
+  }
+  if (msg.charName.empty())
+  {
+      return R"({"ok":false,"error":"INVALID_CHARNAME_SCORE_MSG"})";
+  }
+  return "";
 }
