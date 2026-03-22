@@ -306,6 +306,7 @@ std::string BuildStatusResponse(
     const Game* game,
     bool scoreAccepted,
     int scoreAdded,
+    int charCurrentScore,
     bool gameOver,
     const std::string& winnerCharName)
 {
@@ -313,6 +314,7 @@ std::string BuildStatusResponse(
     response["ok"] = true;
     response["scoreAccepted"] = scoreAccepted;
     response["scoreAdded"] = scoreAdded;
+    response["yourCurrentScore"]= charCurrentScore;
     response["gameOver"] = gameOver;
     response["winnerCharName"] = winnerCharName;
     response["cooldownActive"] = IsGameStartCooldownActive();
@@ -402,21 +404,7 @@ std::string SendScore(ScoreMsg msg)
 
     std::lock_guard<std::mutex> lock(ScoresMutex);
 
-    Game* runningGame = GetOrStartRunningGame();
-
-    // no running game because cooldown/waiting is active
-    if (!runningGame)
-    {
-        return BuildStatusResponse(nullptr, false, 0, false, "");
-    }
-
-    CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
-
-    // heartbeat only
-    if (msg.score == 0)
-    {
-        return BuildStatusResponse(runningGame, false, 0, false, "");
-    }
+   std::cout << "SendScore got msg from " << msg.charName << " with score " << msg.score << std::endl;
 
     int currentTotalForPlayer = 0;
     for (const ScoreMsg& s : CurrentScores)
@@ -427,6 +415,24 @@ std::string SendScore(ScoreMsg msg)
         }
     }
 
+    Game* runningGame = GetOrStartRunningGame();
+
+    // no running game because cooldown/waiting is active
+    if (!runningGame)
+    {
+        return BuildStatusResponse(nullptr, false, 0, currentTotalForPlayer, false, "");
+    }
+
+    CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
+
+
+    // heartbeat only
+    if (msg.score == 0)
+    {
+        return BuildStatusResponse(runningGame, false, 0, currentTotalForPlayer, false, "");
+    }
+
+
     // winning score reached
     if (currentTotalForPlayer + msg.score >= runningGame->winScore)
     {
@@ -435,14 +441,14 @@ std::string SendScore(ScoreMsg msg)
         runningGame->status = GameStatus::Over;
         StartGameCooldown(GAME_COOLDOWN_SECONDS);
 
-        return BuildStatusResponse(runningGame, true, msg.score, true, msg.charName);
+        return BuildStatusResponse(runningGame, true, msg.score, currentTotalForPlayer+msg.score, true, msg.charName);
     }
 
     // normal score add
     CurrentScores.push_back(msg);
     CleanupOldScores(CurrentScores, SCORE_WINDOW_SECONDS);
 
-    return BuildStatusResponse(runningGame, true, msg.score, false, "");
+    return BuildStatusResponse(runningGame, true, msg.score, currentTotalForPlayer+msg.score, false, "");
 }
 
 std::string NewGame(const std::string& body)

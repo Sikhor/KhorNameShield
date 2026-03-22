@@ -6,12 +6,13 @@ NEWGAMEBASEURL="https://gameinfo.daraempire.com/api/v001/khor-services/GameTrack
 SendScore() {
     local CHARNAME="$1"
     local SCORE=$2
-    local BSHOWALLLEADERS="$3"
+    local AVATARID="$3"
+    local BSHOWALLLEADERS="$4"
 
     response=$(curl -sS -X POST\
         -H "Content-Type: application/json" \
         -H "X-Api-Key: $APIKEY" \
-        -d "{\"score\":$SCORE,\"avatarId\":\"A1\",\"charName\":\"$CHARNAME\"}" \
+        -d "{\"score\":$SCORE,\"avatarId\":\"$AVATARID\",\"charName\":\"$CHARNAME\"}" \
         "$SCOREBASEURL")
     
     # If third parameter is "true" → print raw JSON
@@ -36,12 +37,13 @@ SendScore() {
 
 
 
-SendScore Bernie 120 
-SendScore Joinix 110 
-SendScore Hatari 100 
-SendScore Trulan 90  
-SendScore Nanasa 80  
-SendScore Gursyn 70  
-SendScore Bollie 60  
-SendScore Jajabi 40  
-SendScore PifPaf 30  true
+SendScore Bernie 120  1
+SendScore Joinix 110  2
+SendScore Hatari 100  3
+SendScore Trulan 90   4
+SendScore Nanasa 80   5
+SendScore Gursyn 70   6
+SendScore Bollie 60   7
+SendScore Jajabi 40   8
+SendScore PifPaf 30   9 
+SendScore Channi 30   6 true

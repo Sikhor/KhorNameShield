@@ -64,6 +64,7 @@ std::string BuildStatusResponse(
     const Game* game,
     bool scoreAccepted,
     int scoreAdded,
+    int charCurrentScore,
     bool gameOver,
     const std::string& winnerCharName);
 
