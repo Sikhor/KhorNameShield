@@ -3,43 +3,43 @@
     {
       "gameId": "DirtyCaverns",
       "description": "Dirty Caverns",
-      "winScore": 1000,
+      "winScore": 3000,
       "status": "Running"
     },    
     {
       "gameId": "DeepUnder",
       "description": "Deep Under",
-      "winScore": 1000,
+      "winScore": 3000,
       "status": "Running"
     },    
     {
       "gameId": "LostCaverns",
       "description": "Lost Caverns",
-      "winScore": 1000,
+      "winScore": 3000,
       "status": "Running"
     },    
     {
       "gameId": "Prina",
       "description": "Prina",
-      "winScore": 1000,
+      "winScore": 3000,
       "status": "Running"
     },    
     {
       "gameId": "PrinaPost",
       "description": "Prina Post",
-      "winScore": 1000,
+      "winScore": 3000,
       "status": "Running"
     },    
     {
       "gameId": "PrinaUnderground",
       "description": "Prina Underground",
-      "winScore": 1000,
+      "winScore": 3000,
       "status": "Running"
     },    
     {
       "gameId": "Reservoir",
       "description": "Reservoir",
-      "winScore": 1000,
+      "winScore": 3000,
       "status": "Running"
     },    
     {
@@ -49,9 +49,9 @@
       "status": "Running"
     },
     {
-      "gameId": "37038",
+      "gameId": "BunkerQ01",
       "description": "Bunker Q01",
-      "winScore": 1000,
+      "winScore": 3000,
       "status": "Running"
     }
   ],
